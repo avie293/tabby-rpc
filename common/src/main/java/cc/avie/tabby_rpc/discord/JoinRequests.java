@@ -10,6 +10,7 @@ import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.TextColor;
 import org.jspecify.annotations.Nullable;
 
 import java.util.HashSet;
@@ -82,14 +83,14 @@ public final class JoinRequests {
         PENDING.add(userId);
         client.gui.hud.getChat().addClientSystemMessage(Component.translatable("tabby_rpc.joinRequest", name)
                 .append(" ")
-                .append(button("tabby_rpc.joinRequest.accept", "accept", userId))
+                .append(button("tabby_rpc.joinRequest.accept", "accept", userId, TextColor.GREEN))
                 .append(" ")
-                .append(button("tabby_rpc.joinRequest.deny", "deny", userId)));
+                .append(button("tabby_rpc.joinRequest.deny", "deny", userId, TextColor.RED)));
     }
 
-    private static MutableComponent button(String key, String action, String userId) {
+    private static MutableComponent button(String key, String action, String userId, TextColor color) {
         ClickEvent click = new ClickEvent.RunCommand("/" + COMMAND + " " + action + " " + userId);
-        return Component.translatable(key).withStyle(style -> style.withClickEvent(click));
+        return Component.translatable(key).withStyle(style -> style.withColor(color).withClickEvent(click));
     }
 
     // The ID ends up in a command, so it must be nothing but the number Discord uses.
