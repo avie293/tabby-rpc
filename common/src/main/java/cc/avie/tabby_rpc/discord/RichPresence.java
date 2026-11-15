@@ -5,8 +5,20 @@ import cc.avie.tabby_rpc.config.TabbyRPCConfig;
 import com.google.gson.JsonObject;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
+import net.minecraft.client.gui.screens.DirectJoinServerScreen;
+import net.minecraft.client.gui.screens.ManageServerScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.minecraft.client.gui.screens.options.OptionsScreen;
+import net.minecraft.client.gui.screens.options.OptionsSubScreen;
+import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen;
+import net.minecraft.client.gui.screens.worldselection.EditWorldScreen;
+import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
+import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 
@@ -18,6 +30,8 @@ public final class RichPresence {
     // Application ID from the Discord Developer Portal.
     private static final String APPLICATION_ID = "1571528779539677315";
     private static final long RETRY_INTERVAL_MS = 15_000L;
+    // Discord accepts five updates in 20 seconds.
+    private static final long UPDATE_INTERVAL_MS = 4_000L;
     // Discord downloads the images itself, so they have to be reachable from the internet.
     private static final String IMAGE_URL = "https://raw.githubusercontent.com/avie293/tabby-rpc/main/discord/";
     private static final String HEAD_URL = "https://mc-heads.net/avatar/";
@@ -27,7 +41,8 @@ public final class RichPresence {
     private static String headUrl;
     // Shown as "Playing <name>" instead of the name of the Discord application.
     private static volatile String name;
-    private static volatile boolean inMenu = true;
+    // The first line below the name, null while a world is loaded.
+    private static volatile @Nullable String details;
 
     private RichPresence() {
     }
@@ -54,11 +69,31 @@ public final class RichPresence {
         wake();
     }
 
-    public static void setInMenu(boolean newInMenu) {
-        if (inMenu != newInMenu) {
-            inMenu = newInMenu;
+    public static void tick(Minecraft client) {
+        String newDetails = client.level != null ? null : menuDetails(client.gui.screen());
+        if (!Objects.equals(details, newDetails)) {
+            details = newDetails;
             wake();
         }
+    }
+
+    private static String menuDetails(@Nullable Screen screen) {
+        if (screen instanceof TitleScreen) {
+            return "In the main menu";
+        } else if (screen instanceof OptionsScreen || screen instanceof OptionsSubScreen) {
+            return "In the options";
+        } else if (screen instanceof JoinMultiplayerScreen || screen instanceof DirectJoinServerScreen
+                || screen instanceof ManageServerScreen) {
+            return "In the multiplayer menu";
+        } else if (screen instanceof SelectWorldScreen || screen instanceof EditWorldScreen) {
+            return "In the singleplayer menu";
+        } else if (screen instanceof CreateWorldScreen) {
+            return "Creating a world";
+        }
+
+        // Dialogs, loading screens and sub screens count as the menu they were opened from.
+        String current = details;
+        return current != null ? current : "In the menu";
     }
 
     private static void wake() {
@@ -89,8 +124,9 @@ public final class RichPresence {
 
         JsonObject activity = new JsonObject();
         activity.addProperty("name", name);
-        if (inMenu) {
-            activity.addProperty("details", "In the menu");
+        String currentDetails = details;
+        if (currentDetails != null) {
+            activity.addProperty("details", currentDetails);
         }
         activity.add("timestamps", timestamps);
         activity.add("assets", assets);
@@ -112,6 +148,7 @@ public final class RichPresence {
                 } else {
                     ipc.setActivity(activity);
                     sent = activity;
+                    Thread.sleep(UPDATE_INTERVAL_MS);
                 }
 
                 // Woken up early when the activity changed.

@@ -14,7 +14,7 @@ public final class TabbyRPCFabricClient implements ClientModInitializer {
     public void onInitializeClient() {
         TabbyRPCConfig.init();
         RichPresence.start();
-        ClientTickEvents.END_CLIENT_TICK.register(client -> RichPresence.setInMenu(client.level == null));
+        ClientTickEvents.END_CLIENT_TICK.register(RichPresence::tick);
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> RichPresence.stop());
     }
 }
