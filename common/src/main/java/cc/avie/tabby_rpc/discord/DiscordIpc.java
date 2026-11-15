@@ -9,8 +9,10 @@ import org.jspecify.annotations.Nullable;
 
 import java.io.Closeable;
 import java.io.EOFException;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.net.UnixDomainSocketAddress;
 import java.nio.ByteBuffer;
@@ -20,12 +22,14 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.function.BiConsumer;
 
 /**
  * Connection to the local Discord client over its IPC socket.
  *
  * <p>A frame consists of an opcode and the payload length as little endian integers, followed by a JSON payload.
- * Instances are not thread safe and every call blocks until Discord has answered.
+ * Instances are not thread safe. Commands block until Discord has answered, events that arrive in the meantime or are
+ * found by {@link #poll()} are passed to the listener on the calling thread.
  */
 final class DiscordIpc implements Closeable {
     private static final int OP_HANDSHAKE = 0;
@@ -44,31 +48,40 @@ final class DiscordIpc implements Closeable {
     private static final String[] UNIX_SUBDIRECTORIES = {"", "app/com.discordapp.Discord", "snap.discord"};
 
     private final ByteChannel channel;
+    // Only on Windows: reading from a pipe blocks, this tells whether there is something to read.
+    private final @Nullable InputStream pipe;
+    private final BiConsumer<String, JsonObject> listener;
     private final ByteBuffer header = ByteBuffer.allocate(HEADER_LENGTH).order(ByteOrder.LITTLE_ENDIAN);
+    private String payload = "";
     private int nonce;
 
-    private DiscordIpc(ByteChannel channel) {
+    private DiscordIpc(ByteChannel channel, @Nullable InputStream pipe, BiConsumer<String, JsonObject> listener) {
         this.channel = channel;
+        this.pipe = pipe;
+        this.listener = listener;
     }
 
     /**
+     * @param listener receives the name and the data of every event Discord sends
      * @throws ClosedException if Discord refused the application
      * @throws IOException if Discord is not running or the connection failed
      */
-    static DiscordIpc connect(String applicationId) throws IOException {
-        boolean windows = System.getProperty("os.name").startsWith("Windows");
-        ByteChannel channel = windows ? openPipe() : openSocket();
-        if (channel == null) {
+    static DiscordIpc connect(String applicationId, BiConsumer<String, JsonObject> listener) throws IOException {
+        DiscordIpc ipc = System.getProperty("os.name").startsWith("Windows")
+                ? openPipe(listener)
+                : openSocket(listener);
+        if (ipc == null) {
             throw new IOException("Discord is not running");
         }
 
-        DiscordIpc ipc = new DiscordIpc(channel);
         try {
             JsonObject handshake = new JsonObject();
             handshake.addProperty("v", 1);
             handshake.addProperty("client_id", applicationId);
             ipc.write(OP_HANDSHAKE, handshake.toString());
-            ipc.read(OP_FRAME);
+            // Discord answers with a ready event.
+            ipc.header.clear();
+            ipc.readFrame();
         } catch (IOException e) {
             ipc.close();
             throw e;
@@ -76,10 +89,11 @@ final class DiscordIpc implements Closeable {
         return ipc;
     }
 
-    private static @Nullable ByteChannel openPipe() {
+    private static @Nullable DiscordIpc openPipe(BiConsumer<String, JsonObject> listener) throws IOException {
         for (int i = 0; i < SOCKET_COUNT; i++) {
             try {
-                return new RandomAccessFile("\\\\.\\pipe\\" + SOCKET_NAME + i, "rw").getChannel();
+                RandomAccessFile file = new RandomAccessFile("\\\\.\\pipe\\" + SOCKET_NAME + i, "rw");
+                return new DiscordIpc(file.getChannel(), new FileInputStream(file.getFD()), listener);
             } catch (FileNotFoundException e) {
                 // No client on this slot.
             }
@@ -87,7 +101,7 @@ final class DiscordIpc implements Closeable {
         return null;
     }
 
-    private static @Nullable ByteChannel openSocket() {
+    private static @Nullable DiscordIpc openSocket(BiConsumer<String, JsonObject> listener) {
         Path directory = Path.of(socketDirectory());
         for (String subdirectory : UNIX_SUBDIRECTORIES) {
             for (int i = 0; i < SOCKET_COUNT; i++) {
@@ -97,7 +111,7 @@ final class DiscordIpc implements Closeable {
                 }
 
                 try {
-                    return SocketChannel.open(UnixDomainSocketAddress.of(socket));
+                    return new DiscordIpc(SocketChannel.open(UnixDomainSocketAddress.of(socket)), null, listener);
                 } catch (IOException e) {
                     // Left behind by a client that is no longer running.
                 }
@@ -120,27 +134,103 @@ final class DiscordIpc implements Closeable {
         JsonObject args = new JsonObject();
         args.addProperty("pid", ProcessHandle.current().pid());
         args.add("activity", activity);
+        this.send("SET_ACTIVITY", null, args);
+    }
 
-        JsonObject command = new JsonObject();
-        command.addProperty("cmd", "SET_ACTIVITY");
-        command.add("args", args);
-        command.addProperty("nonce", Integer.toString(++this.nonce));
-        this.write(OP_FRAME, command.toString());
+    void subscribe(String event) throws IOException {
+        this.send("SUBSCRIBE", event, null);
+    }
 
-        JsonObject response = parse(this.read(OP_FRAME));
-        JsonElement event = response.get("evt");
-        if (event != null && event.isJsonPrimitive() && "ERROR".equals(event.getAsString())) {
-            TabbyRPC.LOGGER.warn("Discord rejected the activity: {}", response.get("data"));
+    /**
+     * Answers a join request: accepting sends the user an invite, declining only dismisses the request.
+     */
+    void answerJoinRequest(String userId, boolean accept) throws IOException {
+        JsonObject args = new JsonObject();
+        args.addProperty("user_id", userId);
+        this.send(accept ? "SEND_ACTIVITY_JOIN_INVITE" : "CLOSE_ACTIVITY_JOIN_REQUEST", null, args);
+    }
+
+    private void send(String command, @Nullable String event, @Nullable JsonObject args) throws IOException {
+        String nonce = Integer.toString(++this.nonce);
+        JsonObject message = new JsonObject();
+        message.addProperty("cmd", command);
+        if (event != null) {
+            message.addProperty("evt", event);
+        }
+        if (args != null) {
+            message.add("args", args);
+        }
+        message.addProperty("nonce", nonce);
+        this.write(OP_FRAME, message.toString());
+
+        while (true) {
+            this.header.clear();
+            if (this.readFrame() != OP_FRAME) {
+                continue;
+            }
+
+            JsonObject response = parse(this.payload);
+            if (!nonce.equals(string(response, "nonce"))) {
+                this.dispatch(response);
+            } else if ("ERROR".equals(string(response, "evt"))) {
+                TabbyRPC.LOGGER.warn("Discord rejected {}: {}", command, response.get("data"));
+                return;
+            } else {
+                return;
+            }
         }
     }
 
     /**
-     * Checks that Discord is still there. Without this a closed client would only be noticed on the next activity
-     * update.
+     * Checks that Discord is still there. Without this a closed client would only be noticed on the next command.
      */
     void ping() throws IOException {
         this.write(OP_PING, "{}");
-        this.read(OP_PONG);
+        int opcode;
+        do {
+            this.header.clear();
+            opcode = this.readFrame();
+            if (opcode == OP_FRAME) {
+                this.dispatch(parse(this.payload));
+            }
+        } while (opcode != OP_PONG);
+    }
+
+    /**
+     * Passes the events that have arrived to the listener, without waiting for more.
+     */
+    void poll() throws IOException {
+        while (this.hasFrame()) {
+            if (this.readFrame() == OP_FRAME) {
+                this.dispatch(parse(this.payload));
+            }
+        }
+    }
+
+    /**
+     * Clears the header and reports whether a frame is waiting. On a socket this already reads into the header.
+     */
+    private boolean hasFrame() throws IOException {
+        this.header.clear();
+        if (this.pipe != null) {
+            return this.pipe.available() > 0;
+        }
+
+        SocketChannel socket = (SocketChannel) this.channel;
+        socket.configureBlocking(false);
+        try {
+            return socket.read(this.header) != 0;
+        } finally {
+            socket.configureBlocking(true);
+        }
+    }
+
+    private void dispatch(JsonObject message) {
+        String event = string(message, "evt");
+        if ("DISPATCH".equals(string(message, "cmd")) && event != null
+                && message.get("data") instanceof JsonObject data) {
+            this.listener.accept(event, data);
+        }
     }
 
     private void write(int opcode, String payload) throws IOException {
@@ -153,30 +243,28 @@ final class DiscordIpc implements Closeable {
     }
 
     /**
-     * Reads frames until one with the given opcode arrives and returns its payload.
+     * Reads the rest of the header and the payload of one frame, the payload is left in {@link #payload}.
+     *
+     * @return the opcode of the frame
      */
-    private String read(int opcode) throws IOException {
-        while (true) {
-            this.header.clear();
-            this.readFully(this.header);
-            this.header.flip();
-            int received = this.header.getInt();
-            int length = this.header.getInt();
-            if (length < 0 || length > MAX_PAYLOAD_LENGTH) {
-                throw new IOException("Invalid frame length " + length);
-            }
-
-            ByteBuffer buffer = ByteBuffer.allocate(length);
-            this.readFully(buffer);
-            String payload = new String(buffer.array(), StandardCharsets.UTF_8);
-            if (received == opcode) {
-                return payload;
-            } else if (received == OP_CLOSE) {
-                throw new ClosedException(payload);
-            } else if (received == OP_PING) {
-                this.write(OP_PONG, payload);
-            }
+    private int readFrame() throws IOException {
+        this.readFully(this.header);
+        this.header.flip();
+        int opcode = this.header.getInt();
+        int length = this.header.getInt();
+        if (length < 0 || length > MAX_PAYLOAD_LENGTH) {
+            throw new IOException("Invalid frame length " + length);
         }
+
+        ByteBuffer buffer = ByteBuffer.allocate(length);
+        this.readFully(buffer);
+        this.payload = new String(buffer.array(), StandardCharsets.UTF_8);
+        if (opcode == OP_CLOSE) {
+            throw new ClosedException(this.payload);
+        } else if (opcode == OP_PING) {
+            this.write(OP_PONG, this.payload);
+        }
+        return opcode;
     }
 
     private void readFully(ByteBuffer buffer) throws IOException {
@@ -191,8 +279,13 @@ final class DiscordIpc implements Closeable {
         try {
             return JsonParser.parseString(payload).getAsJsonObject();
         } catch (JsonParseException | IllegalStateException e) {
-            throw new IOException("Malformed response from Discord", e);
+            throw new IOException("Malformed message from Discord", e);
         }
+    }
+
+    static @Nullable String string(JsonObject object, String key) {
+        JsonElement element = object.get(key);
+        return element != null && element.isJsonPrimitive() ? element.getAsString() : null;
     }
 
     @Override

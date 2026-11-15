@@ -2,12 +2,17 @@ package cc.avie.tabby_rpc.discord;
 
 import cc.avie.tabby_rpc.TabbyRPC;
 import cc.avie.tabby_rpc.config.TabbyRPCConfig;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
 import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
+import java.util.Objects;
+import java.util.Queue;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 
@@ -19,9 +24,16 @@ public final class RichPresence {
     // Application ID from the Discord Developer Portal.
     private static final String APPLICATION_ID = "1571528779539677315";
     private static final long RETRY_INTERVAL_MS = 15_000L;
+    private static final long RETRY_INTERVAL_NS = TimeUnit.MILLISECONDS.toNanos(RETRY_INTERVAL_MS);
     // Discord accepts five updates in 20 seconds.
-    private static final long UPDATE_INTERVAL_MS = 4_000L;
+    private static final long UPDATE_INTERVAL_NS = TimeUnit.SECONDS.toNanos(4);
+    // How often events from Discord, such as join requests, are looked for.
+    private static final long POLL_INTERVAL_NS = TimeUnit.SECONDS.toNanos(1);
     private static final String HEAD_URL = "https://mc-heads.net/avatar/";
+    // Everyone in the same world has to report the same party, joining players do not do that yet.
+    private static final String PARTY_ID = UUID.randomUUID().toString();
+
+    private static final Queue<JoinAnswer> JOIN_ANSWERS = new ConcurrentLinkedQueue<>();
 
     private static Thread thread;
     private static String playerName;
@@ -59,12 +71,27 @@ public final class RichPresence {
      * Sets the two lines below the name and the large image. Cheap enough to be called every tick.
      */
     public static void update(String details, String state, String image) {
+        update(details, state, image, 0, 0, null);
+    }
+
+    /**
+     * @param partyMax the number of players that fit into the world, 0 hides the party
+     * @param joinSecret what a joining player needs to get into the world, only handed out to players the host let in
+     */
+    public static void update(String details, String state, String image, int partySize, int partyMax,
+                              @Nullable String joinSecret) {
         Presence current = presence;
         if (current == null || !current.details.equals(details) || !current.state.equals(state)
-                || !current.image.equals(image)) {
-            presence = new Presence(details, state, image);
+                || !current.image.equals(image) || current.partySize != partySize || current.partyMax != partyMax
+                || !Objects.equals(current.joinSecret, joinSecret)) {
+            presence = new Presence(details, state, image, partySize, partyMax, joinSecret);
             wake();
         }
+    }
+
+    static void answerJoinRequest(String userId, boolean accept) {
+        JOIN_ANSWERS.add(new JoinAnswer(userId, accept));
+        wake();
     }
 
     private static void wake() {
@@ -92,20 +119,36 @@ public final class RichPresence {
      * @return {@code false} if Discord refused the connection and trying again is pointless
      */
     private static boolean hold(JsonObject timestamps) throws InterruptedException {
-        try (DiscordIpc ipc = DiscordIpc.connect(APPLICATION_ID)) {
+        try (DiscordIpc ipc = DiscordIpc.connect(APPLICATION_ID, JoinRequests::onEvent)) {
+            ipc.subscribe("ACTIVITY_JOIN");
+            ipc.subscribe("ACTIVITY_JOIN_REQUEST");
+
             JsonObject sent = null;
+            long now = System.nanoTime();
+            long nextUpdate = now;
+            long nextPing = now + RETRY_INTERVAL_NS;
             while (true) {
+                ipc.poll();
+                for (JoinAnswer answer; (answer = JOIN_ANSWERS.poll()) != null; ) {
+                    ipc.answerJoinRequest(answer.userId, answer.accept);
+                }
+
+                now = System.nanoTime();
                 JsonObject activity = activity(timestamps);
                 if (activity.equals(sent)) {
-                    ipc.ping();
-                } else {
+                    if (now - nextPing >= 0) {
+                        ipc.ping();
+                        nextPing = now + RETRY_INTERVAL_NS;
+                    }
+                } else if (now - nextUpdate >= 0) {
                     ipc.setActivity(activity);
                     sent = activity;
-                    Thread.sleep(UPDATE_INTERVAL_MS);
+                    nextUpdate = now + UPDATE_INTERVAL_NS;
+                    nextPing = now + RETRY_INTERVAL_NS;
                 }
 
                 // Woken up early when the activity changed.
-                LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(RETRY_INTERVAL_MS));
+                LockSupport.parkNanos(POLL_INTERVAL_NS);
                 if (Thread.interrupted()) {
                     throw new InterruptedException();
                 }
@@ -126,15 +169,32 @@ public final class RichPresence {
 
         // Still unknown for a moment after the game has started.
         Presence current = presence;
-        if (current != null) {
-            JsonObject assets = new JsonObject();
-            assets.addProperty("large_image", current.image);
-            // Discord draws the small image as a circle in the bottom right corner of the large one.
-            assets.addProperty("small_image", headUrl);
-            assets.addProperty("small_text", playerName);
-            activity.addProperty("details", fit(current.details));
-            activity.addProperty("state", fit(current.state));
-            activity.add("assets", assets);
+        if (current == null) {
+            return activity;
+        }
+
+        JsonObject assets = new JsonObject();
+        assets.addProperty("large_image", current.image);
+        // Discord draws the small image as a circle in the bottom right corner of the large one.
+        assets.addProperty("small_image", headUrl);
+        assets.addProperty("small_text", playerName);
+        activity.addProperty("details", fit(current.details));
+        activity.addProperty("state", fit(current.state));
+        activity.add("assets", assets);
+
+        if (current.partyMax > 0) {
+            JsonArray size = new JsonArray();
+            size.add(current.partySize);
+            size.add(current.partyMax);
+            JsonObject party = new JsonObject();
+            party.addProperty("id", PARTY_ID);
+            party.add("size", size);
+            activity.add("party", party);
+        }
+        if (current.partyMax > 0 && current.joinSecret != null) {
+            JsonObject secrets = new JsonObject();
+            secrets.addProperty("join", current.joinSecret);
+            activity.add("secrets", secrets);
         }
         return activity;
     }
@@ -149,6 +209,10 @@ public final class RichPresence {
         return text.length() > 128 ? text.substring(0, 128) : text;
     }
 
-    private record Presence(String details, String state, String image) {
+    private record Presence(String details, String state, String image, int partySize, int partyMax,
+                            @Nullable String joinSecret) {
+    }
+
+    private record JoinAnswer(String userId, boolean accept) {
     }
 }

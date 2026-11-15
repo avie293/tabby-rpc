@@ -1,5 +1,6 @@
 package cc.avie.tabby_rpc.discord;
 
+import cc.avie.tabby_rpc.compat.E4mc;
 import cc.avie.tabby_rpc.config.TabbyRPCConfig;
 import cc.avie.tabby_rpc.platform.Services;
 import net.minecraft.SharedConstants;
@@ -17,6 +18,7 @@ import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.server.IntegratedServer;
+import net.minecraft.server.players.PlayerList;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -58,11 +60,24 @@ public final class ActivityTracker {
         menu = UNKNOWN_MENU;
         IntegratedServer server = client.getSingleplayerServer();
         if (server != null) {
-            RichPresence.update("Singleplayer", server.getWorldData().getLevelName() + SEPARATOR + VERSION,
-                    WORLD_IMAGE);
+            updateSingleplayer(server);
         } else {
             updateMultiplayer(client.getCurrentServer(), client.getConnection());
         }
+    }
+
+    private static void updateSingleplayer(IntegratedServer server) {
+        String state = server.getWorldData().getLevelName() + SEPARATOR + VERSION;
+        if (!server.isPublished()) {
+            E4mc.clear();
+            RichPresence.update("Singleplayer", state, WORLD_IMAGE);
+            return;
+        }
+
+        // Others can only get into a LAN world from outside while e4mc provides a domain for it.
+        PlayerList players = server.getPlayerList();
+        RichPresence.update("Singleplayer", state, WORLD_IMAGE, players.getPlayerCount(), players.getMaxPlayers(),
+                E4mc.domain());
     }
 
     private static String menuDetails(@Nullable Screen screen) {
@@ -90,8 +105,9 @@ public final class ActivityTracker {
                 ? online + "/" + server.players.max()
                 : online + " online";
 
-        // LAN worlds and Realms have no address that means anything to others.
-        if (server == null || server.type() != ServerData.Type.OTHER
+        // LAN worlds and Realms have no address that means anything to others, and the address of a world joined
+        // through Discord is not ours to share.
+        if (server == null || server.type() != ServerData.Type.OTHER || server.ip.equals(JoinRequests.joinedAddress())
                 || !TabbyRPCConfig.showsServerAddress(server.ip)) {
             RichPresence.update("Multiplayer", players, WORLD_IMAGE);
             return;
