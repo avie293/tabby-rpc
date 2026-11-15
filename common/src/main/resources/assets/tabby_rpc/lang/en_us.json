@@ -2,5 +2,11 @@
   "avie.discord": "Discord",
   "config.tabby_rpc.category.general": "General",
   "config.tabby_rpc.activityName": "Activity name",
-  "config.tabby_rpc.activityName.tooltip": "Discord shows this after 'Playing'."
+  "config.tabby_rpc.activityName.tooltip": "Discord shows this after 'Playing'.",
+  "config.tabby_rpc.showServerAddresses": "Show server addresses",
+  "config.tabby_rpc.showServerAddresses.tooltip": "Shows the address and the icon of the server you are playing on. Servers set to hidden when adding or editing them stay hidden.",
+  "tabby_rpc.serverAddress": "Address in Discord",
+  "tabby_rpc.serverAddress.default": "Default",
+  "tabby_rpc.serverAddress.shown": "Shown",
+  "tabby_rpc.serverAddress.hidden": "Hidden"
 }

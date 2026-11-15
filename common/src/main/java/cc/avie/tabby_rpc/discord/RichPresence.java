@@ -2,26 +2,12 @@ package cc.avie.tabby_rpc.discord;
 
 import cc.avie.tabby_rpc.TabbyRPC;
 import cc.avie.tabby_rpc.config.TabbyRPCConfig;
-import cc.avie.tabby_rpc.platform.Services;
 import com.google.gson.JsonObject;
-import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
-import net.minecraft.client.gui.screens.DirectJoinServerScreen;
-import net.minecraft.client.gui.screens.ManageServerScreen;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.TitleScreen;
-import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
-import net.minecraft.client.gui.screens.options.OptionsScreen;
-import net.minecraft.client.gui.screens.options.OptionsSubScreen;
-import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen;
-import net.minecraft.client.gui.screens.worldselection.EditWorldScreen;
-import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
-import net.minecraft.client.server.IntegratedServer;
 import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 
@@ -35,21 +21,14 @@ public final class RichPresence {
     private static final long RETRY_INTERVAL_MS = 15_000L;
     // Discord accepts five updates in 20 seconds.
     private static final long UPDATE_INTERVAL_MS = 4_000L;
-    // Discord downloads the images itself, so they have to be reachable from the internet.
-    private static final String IMAGE_URL = "https://raw.githubusercontent.com/avie293/tabby-rpc/main/discord/";
     private static final String HEAD_URL = "https://mc-heads.net/avatar/";
 
     private static Thread thread;
     private static String playerName;
     private static String headUrl;
-    private static String version;
     // Shown as "Playing <name>" instead of the name of the Discord application.
     private static volatile String name;
-    // The two lines below the name.
-    private static volatile @Nullable String details;
-    private static volatile @Nullable String state;
-    private static volatile String image = "menu.png";
-    private static boolean inMenu;
+    private static volatile @Nullable Presence presence;
 
     private RichPresence() {
     }
@@ -58,7 +37,6 @@ public final class RichPresence {
         User user = Minecraft.getInstance().getUser();
         playerName = user.getName();
         headUrl = HEAD_URL + user.getProfileId();
-        version = Services.PLATFORM.getPlatformName() + " " + SharedConstants.getCurrentVersion().name();
         name = TabbyRPCConfig.ACTIVITY_NAME.get();
         thread = new Thread(RichPresence::run, TabbyRPC.MOD_NAME);
         thread.setDaemon(true);
@@ -77,46 +55,16 @@ public final class RichPresence {
         wake();
     }
 
-    public static void tick(Minecraft client) {
-        String newDetails = null;
-        String newState = null;
-        String newImage = "menu.png";
-        IntegratedServer server = client.getSingleplayerServer();
-        if (client.level == null) {
-            newDetails = menuDetails(client.gui.screen());
-        } else if (server != null) {
-            newDetails = "Singleplayer";
-            newState = server.getWorldData().getLevelName();
-            // The icon Minecraft shows for worlds without a preview image.
-            newImage = "world.png";
-        }
-        inMenu = client.level == null;
-
-        if (!Objects.equals(details, newDetails) || !Objects.equals(state, newState)) {
-            details = newDetails;
-            state = newState;
-            image = newImage;
+    /**
+     * Sets the two lines below the name and the large image. Cheap enough to be called every tick.
+     */
+    public static void update(String details, String state, String image) {
+        Presence current = presence;
+        if (current == null || !current.details.equals(details) || !current.state.equals(state)
+                || !current.image.equals(image)) {
+            presence = new Presence(details, state, image);
             wake();
         }
-    }
-
-    private static String menuDetails(@Nullable Screen screen) {
-        if (screen instanceof TitleScreen) {
-            return "In the main menu";
-        } else if (screen instanceof OptionsScreen || screen instanceof OptionsSubScreen) {
-            return "In the options";
-        } else if (screen instanceof JoinMultiplayerScreen || screen instanceof DirectJoinServerScreen
-                || screen instanceof ManageServerScreen) {
-            return "In the multiplayer menu";
-        } else if (screen instanceof SelectWorldScreen || screen instanceof EditWorldScreen) {
-            return "In the singleplayer menu";
-        } else if (screen instanceof CreateWorldScreen) {
-            return "Creating a world";
-        }
-
-        // Dialogs, loading screens and sub screens count as the menu they were opened from.
-        String current = details;
-        return inMenu && current != null ? current : "In the menu";
     }
 
     private static void wake() {
@@ -136,39 +84,6 @@ public final class RichPresence {
         } catch (InterruptedException e) {
             // Stopped.
         }
-    }
-
-    private static JsonObject activity(JsonObject timestamps) {
-        JsonObject assets = new JsonObject();
-        assets.addProperty("large_image", IMAGE_URL + image);
-        assets.addProperty("large_text", version);
-        // Discord draws the small image as a circle in the bottom right corner of the large one.
-        assets.addProperty("small_image", headUrl);
-        assets.addProperty("small_text", playerName);
-
-        JsonObject activity = new JsonObject();
-        activity.addProperty("name", name);
-        String currentDetails = details;
-        if (currentDetails != null) {
-            activity.addProperty("details", currentDetails);
-        }
-        String currentState = state;
-        if (currentState != null) {
-            activity.addProperty("state", fit(currentState));
-        }
-        activity.add("timestamps", timestamps);
-        activity.add("assets", assets);
-        return activity;
-    }
-
-    /**
-     * Discord only accepts texts with 2 to 128 characters.
-     */
-    private static String fit(String text) {
-        if (text.length() < 2) {
-            return text + " ";
-        }
-        return text.length() > 128 ? text.substring(0, 128) : text;
     }
 
     /**
@@ -202,5 +117,38 @@ public final class RichPresence {
             // Discord is not running or was closed in the meantime.
             return true;
         }
+    }
+
+    private static JsonObject activity(JsonObject timestamps) {
+        JsonObject activity = new JsonObject();
+        activity.addProperty("name", name);
+        activity.add("timestamps", timestamps);
+
+        // Still unknown for a moment after the game has started.
+        Presence current = presence;
+        if (current != null) {
+            JsonObject assets = new JsonObject();
+            assets.addProperty("large_image", current.image);
+            // Discord draws the small image as a circle in the bottom right corner of the large one.
+            assets.addProperty("small_image", headUrl);
+            assets.addProperty("small_text", playerName);
+            activity.addProperty("details", fit(current.details));
+            activity.addProperty("state", fit(current.state));
+            activity.add("assets", assets);
+        }
+        return activity;
+    }
+
+    /**
+     * Discord only accepts texts with 2 to 128 characters.
+     */
+    private static String fit(String text) {
+        if (text.length() < 2) {
+            return text + " ";
+        }
+        return text.length() > 128 ? text.substring(0, 128) : text;
+    }
+
+    private record Presence(String details, String state, String image) {
     }
 }

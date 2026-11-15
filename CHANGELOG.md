@@ -7,5 +7,7 @@
 - Added an option to change the name Discord shows after "Playing", `Minecraft` by default
 - Added an image and the current menu while no world is loaded: main menu, options, multiplayer, singleplayer and world creation
 - Added "Singleplayer", the name of the world and the default world icon while playing in a singleplayer world
-- Added the Minecraft version and the mod loader as text of the large image
+- Added the mod loader and the Minecraft version to the second line in menus and in singleplayer
+- Added "Multiplayer" and the number of players while playing on a server
+- Added an option to show the address and the icon of servers, for all servers or for single ones when adding or editing them
 - Added the head of the player as a small round image
