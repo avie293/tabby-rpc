@@ -48,6 +48,7 @@ public final class ActivityTracker {
         if (client.level == null) {
             menu = menuDetails(client.gui.screen());
             worldTicks = 0;
+            E4mc.clear();
             RichPresence.update(menu, VERSION, MENU_IMAGE);
             return;
         }
@@ -68,16 +69,17 @@ public final class ActivityTracker {
 
     private static void updateSingleplayer(IntegratedServer server) {
         String state = server.getWorldData().getLevelName() + SEPARATOR + VERSION;
-        if (!server.isPublished()) {
-            E4mc.clear();
+        // e4mc is started and stopped on its own, the world does not have to be open to LAN for it.
+        String domain = E4mc.domain();
+        if (!server.isPublished() && domain == null) {
             RichPresence.update("Singleplayer", state, WORLD_IMAGE);
             return;
         }
 
-        // Others can only get into a LAN world from outside while e4mc provides a domain for it.
+        // Others can only get into the world from outside while e4mc provides a domain for it.
         PlayerList players = server.getPlayerList();
         RichPresence.update("Singleplayer", state, WORLD_IMAGE, players.getPlayerCount(), players.getMaxPlayers(),
-                E4mc.domain());
+                domain);
     }
 
     private static String menuDetails(@Nullable Screen screen) {

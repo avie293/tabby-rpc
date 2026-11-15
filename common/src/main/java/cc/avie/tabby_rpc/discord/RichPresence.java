@@ -142,6 +142,7 @@ public final class RichPresence {
                     }
                 } else if (now - nextUpdate >= 0) {
                     ipc.setActivity(activity);
+                    TabbyRPC.LOGGER.debug("Sent activity {}", activity);
                     sent = activity;
                     nextUpdate = now + UPDATE_INTERVAL_NS;
                     nextPing = now + RETRY_INTERVAL_NS;
