@@ -3,6 +3,8 @@ package cc.avie.tabby_rpc.discord;
 import cc.avie.tabby_rpc.TabbyRPC;
 import cc.avie.tabby_rpc.config.TabbyRPCConfig;
 import com.google.gson.JsonObject;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.User;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -16,15 +18,24 @@ public final class RichPresence {
     // Application ID from the Discord Developer Portal.
     private static final String APPLICATION_ID = "1571528779539677315";
     private static final long RETRY_INTERVAL_MS = 15_000L;
+    // Discord downloads the images itself, so they have to be reachable from the internet.
+    private static final String IMAGE_URL = "https://raw.githubusercontent.com/avie293/tabby-rpc/main/discord/";
+    private static final String HEAD_URL = "https://mc-heads.net/avatar/";
 
     private static Thread thread;
+    private static String playerName;
+    private static String headUrl;
     // Shown as "Playing <name>" instead of the name of the Discord application.
     private static volatile String name;
+    private static volatile boolean inMenu = true;
 
     private RichPresence() {
     }
 
     public static void start() {
+        User user = Minecraft.getInstance().getUser();
+        playerName = user.getName();
+        headUrl = HEAD_URL + user.getProfileId();
         name = TabbyRPCConfig.ACTIVITY_NAME.get();
         thread = new Thread(RichPresence::run, TabbyRPC.MOD_NAME);
         thread.setDaemon(true);
@@ -40,6 +51,17 @@ public final class RichPresence {
 
     public static void setName(String newName) {
         name = newName;
+        wake();
+    }
+
+    public static void setInMenu(boolean newInMenu) {
+        if (inMenu != newInMenu) {
+            inMenu = newInMenu;
+            wake();
+        }
+    }
+
+    private static void wake() {
         if (thread != null) {
             LockSupport.unpark(thread);
         }
@@ -58,6 +80,23 @@ public final class RichPresence {
         }
     }
 
+    private static JsonObject activity(JsonObject timestamps) {
+        JsonObject assets = new JsonObject();
+        assets.addProperty("large_image", IMAGE_URL + "menu.png");
+        // Discord draws the small image as a circle in the bottom right corner of the large one.
+        assets.addProperty("small_image", headUrl);
+        assets.addProperty("small_text", playerName);
+
+        JsonObject activity = new JsonObject();
+        activity.addProperty("name", name);
+        if (inMenu) {
+            activity.addProperty("details", "In the menu");
+        }
+        activity.add("timestamps", timestamps);
+        activity.add("assets", assets);
+        return activity;
+    }
+
     /**
      * Connects and stays connected for as long as Discord is running.
      *
@@ -65,20 +104,17 @@ public final class RichPresence {
      */
     private static boolean hold(JsonObject timestamps) throws InterruptedException {
         try (DiscordIpc ipc = DiscordIpc.connect(APPLICATION_ID)) {
-            String sent = null;
+            JsonObject sent = null;
             while (true) {
-                String current = name;
-                if (current.equals(sent)) {
+                JsonObject activity = activity(timestamps);
+                if (activity.equals(sent)) {
                     ipc.ping();
                 } else {
-                    JsonObject activity = new JsonObject();
-                    activity.addProperty("name", current);
-                    activity.add("timestamps", timestamps);
                     ipc.setActivity(activity);
-                    sent = current;
+                    sent = activity;
                 }
 
-                // Woken up early by a changed setting.
+                // Woken up early when the activity changed.
                 LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(RETRY_INTERVAL_MS));
                 if (Thread.interrupted()) {
                     throw new InterruptedException();
