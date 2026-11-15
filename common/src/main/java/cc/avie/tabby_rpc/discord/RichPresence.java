@@ -45,6 +45,7 @@ public final class RichPresence {
     // The two lines below the name.
     private static volatile @Nullable String details;
     private static volatile @Nullable String state;
+    private static volatile String image = "menu.png";
     private static boolean inMenu;
 
     private RichPresence() {
@@ -75,18 +76,22 @@ public final class RichPresence {
     public static void tick(Minecraft client) {
         String newDetails = null;
         String newState = null;
+        String newImage = "menu.png";
         IntegratedServer server = client.getSingleplayerServer();
         if (client.level == null) {
             newDetails = menuDetails(client.gui.screen());
         } else if (server != null) {
             newDetails = "Singleplayer";
             newState = server.getWorldData().getLevelName();
+            // The icon Minecraft shows for worlds without a preview image.
+            newImage = "world.png";
         }
         inMenu = client.level == null;
 
         if (!Objects.equals(details, newDetails) || !Objects.equals(state, newState)) {
             details = newDetails;
             state = newState;
+            image = newImage;
             wake();
         }
     }
@@ -131,7 +136,7 @@ public final class RichPresence {
 
     private static JsonObject activity(JsonObject timestamps) {
         JsonObject assets = new JsonObject();
-        assets.addProperty("large_image", IMAGE_URL + "menu.png");
+        assets.addProperty("large_image", IMAGE_URL + image);
         // Discord draws the small image as a circle in the bottom right corner of the large one.
         assets.addProperty("small_image", headUrl);
         assets.addProperty("small_text", playerName);
