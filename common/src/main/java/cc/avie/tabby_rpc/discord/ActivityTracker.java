@@ -29,8 +29,8 @@ public final class ActivityTracker {
     private static final String UNKNOWN_MENU = "In the menu";
     // Discord downloads the images itself, so they have to be reachable from the internet.
     private static final String IMAGE_URL = "https://raw.githubusercontent.com/avie293/tabby-rpc/main/discord/";
-    // Discord remembers images by their URL, so the number has to go up whenever the image changes.
-    private static final String MENU_IMAGE = IMAGE_URL + "logo.png?v=4";
+    // Discord and GitHub both cache images by their URL, so a changed image needs a new file name.
+    private static final String MENU_IMAGE = IMAGE_URL + "logo-5.png";
     // The icon Minecraft shows for worlds and servers without an own one.
     private static final String WORLD_IMAGE = IMAGE_URL + "world.png";
     private static final String SERVER_ICON_URL = "https://api.mcstatus.io/v2/icon/";
