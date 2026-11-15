@@ -15,6 +15,7 @@ import net.minecraft.client.gui.screens.options.OptionsSubScreen;
 import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen;
 import net.minecraft.client.gui.screens.worldselection.EditWorldScreen;
 import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
+import net.minecraft.client.server.IntegratedServer;
 import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
@@ -41,8 +42,10 @@ public final class RichPresence {
     private static String headUrl;
     // Shown as "Playing <name>" instead of the name of the Discord application.
     private static volatile String name;
-    // The first line below the name, null while a world is loaded.
+    // The two lines below the name.
     private static volatile @Nullable String details;
+    private static volatile @Nullable String state;
+    private static boolean inMenu;
 
     private RichPresence() {
     }
@@ -70,9 +73,20 @@ public final class RichPresence {
     }
 
     public static void tick(Minecraft client) {
-        String newDetails = client.level != null ? null : menuDetails(client.gui.screen());
-        if (!Objects.equals(details, newDetails)) {
+        String newDetails = null;
+        String newState = null;
+        IntegratedServer server = client.getSingleplayerServer();
+        if (client.level == null) {
+            newDetails = menuDetails(client.gui.screen());
+        } else if (server != null) {
+            newDetails = "Singleplayer";
+            newState = server.getWorldData().getLevelName();
+        }
+        inMenu = client.level == null;
+
+        if (!Objects.equals(details, newDetails) || !Objects.equals(state, newState)) {
             details = newDetails;
+            state = newState;
             wake();
         }
     }
@@ -93,7 +107,7 @@ public final class RichPresence {
 
         // Dialogs, loading screens and sub screens count as the menu they were opened from.
         String current = details;
-        return current != null ? current : "In the menu";
+        return inMenu && current != null ? current : "In the menu";
     }
 
     private static void wake() {
@@ -128,9 +142,23 @@ public final class RichPresence {
         if (currentDetails != null) {
             activity.addProperty("details", currentDetails);
         }
+        String currentState = state;
+        if (currentState != null) {
+            activity.addProperty("state", fit(currentState));
+        }
         activity.add("timestamps", timestamps);
         activity.add("assets", assets);
         return activity;
+    }
+
+    /**
+     * Discord only accepts texts with 2 to 128 characters.
+     */
+    private static String fit(String text) {
+        if (text.length() < 2) {
+            return text + " ";
+        }
+        return text.length() > 128 ? text.substring(0, 128) : text;
     }
 
     /**
