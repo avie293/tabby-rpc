@@ -36,6 +36,8 @@ public final class RichPresence {
         JsonObject timestamps = new JsonObject();
         timestamps.addProperty("start", System.currentTimeMillis() / 1000L);
         JsonObject activity = new JsonObject();
+        // Shown as "Playing Minecraft" instead of the name of the Discord application.
+        activity.addProperty("name", "Minecraft");
         activity.add("timestamps", timestamps);
 
         try {
