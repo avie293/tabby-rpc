@@ -58,8 +58,7 @@ public final class RichPresence {
         User user = Minecraft.getInstance().getUser();
         playerName = user.getName();
         headUrl = HEAD_URL + user.getProfileId();
-        version = "Minecraft " + SharedConstants.getCurrentVersion().name() + " (" + Services.PLATFORM.getPlatformName()
-                + ")";
+        version = Services.PLATFORM.getPlatformName() + " " + SharedConstants.getCurrentVersion().name();
         name = TabbyRPCConfig.ACTIVITY_NAME.get();
         thread = new Thread(RichPresence::run, TabbyRPC.MOD_NAME);
         thread.setDaemon(true);
