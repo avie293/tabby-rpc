@@ -1,4 +1,4 @@
-package cc.avie.avies_rich_presence.platform;
+package cc.avie.tabby_rpc.platform;
 
 import java.util.ServiceLoader;
 

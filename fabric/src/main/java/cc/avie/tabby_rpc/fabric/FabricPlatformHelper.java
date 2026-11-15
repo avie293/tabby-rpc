@@ -1,6 +1,6 @@
-package cc.avie.avies_rich_presence.fabric;
+package cc.avie.tabby_rpc.fabric;
 
-import cc.avie.avies_rich_presence.platform.PlatformHelper;
+import cc.avie.tabby_rpc.platform.PlatformHelper;
 import net.fabricmc.loader.api.FabricLoader;
 
 /**

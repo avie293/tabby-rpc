@@ -1,6 +1,6 @@
-package cc.avie.avies_rich_presence.neoforge;
+package cc.avie.tabby_rpc.neoforge;
 
-import cc.avie.avies_rich_presence.platform.PlatformHelper;
+import cc.avie.tabby_rpc.platform.PlatformHelper;
 import net.neoforged.fml.ModList;
 
 /**

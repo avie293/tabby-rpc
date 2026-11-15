@@ -1,7 +1,7 @@
 {
   "required": true,
   "minVersion": "0.8",
-  "package": "cc.avie.avies_rich_presence.mixin",
+  "package": "cc.avie.tabby_rpc.fabric.mixin",
   "compatibilityLevel": "JAVA_25",
   "mixins": [],
   "client": [],

@@ -16,12 +16,12 @@
   "environment": "client",
   "entrypoints": {
     "client": [
-      "cc.avie.avies_rich_presence.fabric.AviesRichPresenceFabricClient"
+      "cc.avie.tabby_rpc.fabric.TabbyRPCFabricClient"
     ]
   },
   "mixins": [
-    "avies_rich_presence.mixins.json",
-    "avies_rich_presence-fabric.mixins.json"
+    "tabby_rpc.mixins.json",
+    "tabby_rpc-fabric.mixins.json"
   ],
   "depends": {
     "fabric-api": "*",

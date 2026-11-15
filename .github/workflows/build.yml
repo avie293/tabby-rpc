@@ -24,7 +24,7 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: avies_rich_presence-artifacts
+          name: tabby_rpc-artifacts
           path: |
             fabric/build/libs/
             neoforge/build/libs/

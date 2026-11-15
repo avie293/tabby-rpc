@@ -1,7 +1,7 @@
 {
   "required": true,
   "minVersion": "0.8",
-  "package": "cc.avie.avies_rich_presence.fabric.mixin",
+  "package": "cc.avie.tabby_rpc.neoforge.mixin",
   "compatibilityLevel": "JAVA_25",
   "mixins": [],
   "client": [],

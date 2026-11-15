@@ -20,7 +20,7 @@ plugins {
     id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
 }
 
-rootProject.name = 'avies-rich-presence'
+rootProject.name = 'tabby-rpc'
 
 includeBuild('build-logic')
 include('common')
