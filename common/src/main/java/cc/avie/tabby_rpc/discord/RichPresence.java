@@ -2,7 +2,9 @@ package cc.avie.tabby_rpc.discord;
 
 import cc.avie.tabby_rpc.TabbyRPC;
 import cc.avie.tabby_rpc.config.TabbyRPCConfig;
+import cc.avie.tabby_rpc.platform.Services;
 import com.google.gson.JsonObject;
+import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
 import net.minecraft.client.gui.screens.DirectJoinServerScreen;
@@ -40,6 +42,7 @@ public final class RichPresence {
     private static Thread thread;
     private static String playerName;
     private static String headUrl;
+    private static String version;
     // Shown as "Playing <name>" instead of the name of the Discord application.
     private static volatile String name;
     // The two lines below the name.
@@ -55,6 +58,8 @@ public final class RichPresence {
         User user = Minecraft.getInstance().getUser();
         playerName = user.getName();
         headUrl = HEAD_URL + user.getProfileId();
+        version = "Minecraft " + SharedConstants.getCurrentVersion().name() + " (" + Services.PLATFORM.getPlatformName()
+                + ")";
         name = TabbyRPCConfig.ACTIVITY_NAME.get();
         thread = new Thread(RichPresence::run, TabbyRPC.MOD_NAME);
         thread.setDaemon(true);
@@ -137,6 +142,7 @@ public final class RichPresence {
     private static JsonObject activity(JsonObject timestamps) {
         JsonObject assets = new JsonObject();
         assets.addProperty("large_image", IMAGE_URL + image);
+        assets.addProperty("large_text", version);
         // Discord draws the small image as a circle in the bottom right corner of the large one.
         assets.addProperty("small_image", headUrl);
         assets.addProperty("small_text", playerName);
