@@ -124,9 +124,6 @@ public final class ActivityTracker {
         RichPresence.update("Multiplayer", server.ip + SEPARATOR + players, image);
     }
 
-    /**
-     * Whether the address can be put into a URL as it is.
-     */
     private static boolean isPlainAddress(String address) {
         for (int i = 0; i < address.length(); i++) {
             char c = address.charAt(i);

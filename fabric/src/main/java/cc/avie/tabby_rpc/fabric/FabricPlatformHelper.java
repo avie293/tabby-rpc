@@ -3,9 +3,6 @@ package cc.avie.tabby_rpc.fabric;
 import cc.avie.tabby_rpc.platform.PlatformHelper;
 import net.fabricmc.loader.api.FabricLoader;
 
-/**
- * Fabric implementation of {@link PlatformHelper}.
- */
 public final class FabricPlatformHelper implements PlatformHelper {
     @Override
     public String getPlatformName() {

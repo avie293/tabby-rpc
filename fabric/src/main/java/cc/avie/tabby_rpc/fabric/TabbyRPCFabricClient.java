@@ -15,9 +15,6 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.network.chat.Component;
 
-/**
- * Fabric client entrypoint of Tabby RPC.
- */
 public final class TabbyRPCFabricClient implements ClientModInitializer {
     private static final String USER_ARGUMENT = "user";
 

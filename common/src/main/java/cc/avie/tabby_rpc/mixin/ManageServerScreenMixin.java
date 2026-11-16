@@ -47,7 +47,7 @@ abstract class ManageServerScreenMixin extends Screen {
             this.tabby_rpc$addressMode = TabbyRPCConfig.getServerAddressMode(this.serverData.ip);
         }
 
-        // Moves done and cancel down to make room below the resource pack button.
+        // Makes room for the address button below the resource pack button.
         for (GuiEventListener child : this.children()) {
             if (child instanceof Button button) {
                 button.setY(button.getY() + tabby_rpc$BUTTON_SHIFT);

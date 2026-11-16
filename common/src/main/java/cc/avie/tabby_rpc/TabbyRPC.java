@@ -3,9 +3,6 @@ package cc.avie.tabby_rpc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Shared constants of Tabby RPC.
- */
 public final class TabbyRPC {
     public static final String MOD_ID = "tabby_rpc";
     public static final String MOD_NAME = "Tabby RPC";
