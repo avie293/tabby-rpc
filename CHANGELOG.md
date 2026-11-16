@@ -14,4 +14,6 @@
 - Added an option to turn join requests off
 - Added an option to hide the name of singleplayer worlds
 - Added a button that leads others to Tabby RPC, which can be turned off
+- Added the `config/custom_rpc` folder, in which modpacks can change texts, images and buttons and use their own Discord application
+- Added `/tabbyrpc reload` to reload the `custom_rpc` folder
 - Added the head of the player as a small round image
