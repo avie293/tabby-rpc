@@ -18,5 +18,7 @@
   "tabby_rpc.joinRequest.deny": "[Deny]",
   "tabby_rpc.joinRequest.accepted": "Sent an invite to join.",
   "tabby_rpc.joinRequest.denied": "Declined the request to join.",
-  "tabby_rpc.joinRequest.unknown": "There is no such request to join."
+  "tabby_rpc.joinRequest.unknown": "There is no such request to join.",
+  "tabby_rpc.reload": "Reloaded the custom_rpc folder.",
+  "tabby_rpc.reload.problems": "Reloaded the custom_rpc folder, %s problems are listed in the log."
 }

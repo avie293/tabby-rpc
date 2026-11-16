@@ -26,11 +26,20 @@ public final class TabbyRPCFabricClient implements ClientModInitializer {
         RichPresence.start();
         ClientTickEvents.END_CLIENT_TICK.register(ActivityTracker::tick);
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> RichPresence.stop());
-        // Run by the buttons of the chat message that announces a join request.
+        // Accept and deny are run by the buttons of the chat message that announces a join request.
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, context) -> dispatcher.register(
                 ClientCommands.literal(JoinRequests.COMMAND)
                         .then(answer("accept", true))
-                        .then(answer("deny", false))));
+                        .then(answer("deny", false))
+                        .then(ClientCommands.literal("reload").executes(TabbyRPCFabricClient::reload))));
+    }
+
+    private static int reload(CommandContext<FabricClientCommandSource> context) {
+        int problems = CustomRpc.load();
+        context.getSource().sendFeedback(problems == 0
+                ? Component.translatable("tabby_rpc.reload")
+                : Component.translatable("tabby_rpc.reload.problems", problems));
+        return 1;
     }
 
     private static LiteralArgumentBuilder<FabricClientCommandSource> answer(String name, boolean accept) {
