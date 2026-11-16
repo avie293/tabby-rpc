@@ -1,23 +1,16 @@
 package cc.avie.tabby_rpc.config;
 
 import cc.avie.tabby_rpc.TabbyRPC;
-import cc.avie.tabby_rpc.discord.RichPresence;
 import cc.avie.tabbylib.api.TabbyConfig;
 import cc.avie.tabbylib.api.option.BooleanOption;
 import cc.avie.tabbylib.api.option.Options;
 import cc.avie.tabbylib.api.option.StringListOption;
-import cc.avie.tabbylib.api.option.StringOption;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 public final class TabbyRPCConfig {
-    // Discord does not accept longer names.
-    public static final StringOption ACTIVITY_NAME = Options.text("activityName", "Minecraft")
-            .maxLength(128)
-            .validator(name -> !name.isBlank())
-            .onChange(RichPresence::setName);
     public static final BooleanOption SHOW_WORLD_NAME = Options.toggle("showWorldName", true);
     public static final BooleanOption SHOW_SERVER_ADDRESSES = Options.toggle("showServerAddresses", false);
     public static final BooleanOption ALLOW_JOIN_REQUESTS = Options.toggle("allowJoinRequests", true);
@@ -39,7 +32,7 @@ public final class TabbyRPCConfig {
     public static void init() {
         config = TabbyConfig.builder(TabbyRPC.MOD_ID)
                 .category("general", category -> category
-                        .add(ACTIVITY_NAME, SHOW_WORLD_NAME, SHOW_SERVER_ADDRESSES, ALLOW_JOIN_REQUESTS,
+                        .add(SHOW_WORLD_NAME, SHOW_SERVER_ADDRESSES, ALLOW_JOIN_REQUESTS,
                                 SHOW_DOWNLOAD_BUTTON, SHOWN_SERVERS, HIDDEN_SERVERS))
                 .build();
     }

@@ -29,6 +29,8 @@ public final class RichPresence {
     private static final long UPDATE_INTERVAL_NS = TimeUnit.SECONDS.toNanos(4);
     // How often events from Discord, such as join requests, are looked for.
     private static final long POLL_INTERVAL_NS = TimeUnit.SECONDS.toNanos(1);
+    // Shown as "Playing Minecraft" instead of the name of the Discord application.
+    private static final String NAME = "Minecraft";
     private static final String HEAD_URL = "https://mc-heads.net/avatar/";
     private static final String DOWNLOAD_LABEL = "Download Tabby RPC";
     private static final String DOWNLOAD_URL = "https://modrinth.com/mod/tabby-rpc";
@@ -40,8 +42,6 @@ public final class RichPresence {
     private static Thread thread;
     private static String playerName;
     private static String headUrl;
-    // Shown as "Playing <name>" instead of the name of the Discord application.
-    private static volatile String name;
     private static volatile @Nullable Presence presence;
 
     private RichPresence() {
@@ -51,7 +51,6 @@ public final class RichPresence {
         User user = Minecraft.getInstance().getUser();
         playerName = user.getName();
         headUrl = HEAD_URL + user.getProfileId();
-        name = TabbyRPCConfig.ACTIVITY_NAME.get();
         thread = new Thread(RichPresence::run, TabbyRPC.MOD_NAME);
         thread.setDaemon(true);
         thread.start();
@@ -62,11 +61,6 @@ public final class RichPresence {
             thread.interrupt();
             thread = null;
         }
-    }
-
-    public static void setName(String newName) {
-        name = newName;
-        wake();
     }
 
     /**
@@ -166,7 +160,7 @@ public final class RichPresence {
 
     private static JsonObject activity(JsonObject timestamps) {
         JsonObject activity = new JsonObject();
-        activity.addProperty("name", name);
+        activity.addProperty("name", NAME);
         activity.add("timestamps", timestamps);
 
         // Still unknown for a moment after the game has started.

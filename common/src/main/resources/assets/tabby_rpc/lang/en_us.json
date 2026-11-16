@@ -1,8 +1,6 @@
 {
   "avie.discord": "Discord",
   "config.tabby_rpc.category.general": "General",
-  "config.tabby_rpc.activityName": "Activity name",
-  "config.tabby_rpc.activityName.tooltip": "Discord shows this after 'Playing'.",
   "config.tabby_rpc.showWorldName": "Show world name",
   "config.tabby_rpc.showWorldName.tooltip": "Shows the name of the singleplayer world you are playing in.",
   "config.tabby_rpc.showServerAddresses": "Show server addresses",
