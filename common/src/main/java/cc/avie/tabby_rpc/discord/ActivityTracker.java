@@ -77,10 +77,11 @@ public final class ActivityTracker {
             return;
         }
 
-        // Others can only get into the world from outside while e4mc provides a domain for it.
+        // Others can only get into the world from outside while e4mc provides a domain for it. Without the join
+        // secret Discord shows no button to ask to join.
         PlayerList players = server.getPlayerList();
         RichPresence.update("Singleplayer", state, WORLD_IMAGE, players.getPlayerCount(), players.getMaxPlayers(),
-                domain);
+                TabbyRPCConfig.ALLOW_JOIN_REQUESTS.get() ? domain : null);
     }
 
     private static String menuDetails(@Nullable Screen screen) {

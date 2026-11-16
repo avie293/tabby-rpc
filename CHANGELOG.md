@@ -12,4 +12,5 @@
 - Added an option to show the address and the icon of servers, for all servers or for single ones when adding or editing them
 - Added the number of players to worlds that are open to LAN
 - Added "Ask to Join" for LAN worlds while e4mc is installed, requests can be answered in Discord or in the chat
+- Added an option to turn join requests off
 - Added the head of the player as a small round image

@@ -5,6 +5,8 @@
   "config.tabby_rpc.activityName.tooltip": "Discord shows this after 'Playing'.",
   "config.tabby_rpc.showServerAddresses": "Show server addresses",
   "config.tabby_rpc.showServerAddresses.tooltip": "Shows the address and the icon of the server you are playing on. Servers set to hidden when adding or editing them stay hidden.",
+  "config.tabby_rpc.allowJoinRequests": "Allow join requests",
+  "config.tabby_rpc.allowJoinRequests.tooltip": "Lets others ask to join your world through Discord while it is shared with e4mc. The number of players is shown either way.",
   "tabby_rpc.serverAddress": "Address in Discord",
   "tabby_rpc.serverAddress.default": "Default",
   "tabby_rpc.serverAddress.shown": "Shown",
