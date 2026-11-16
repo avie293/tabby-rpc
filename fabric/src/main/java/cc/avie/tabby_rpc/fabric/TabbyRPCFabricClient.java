@@ -1,6 +1,7 @@
 package cc.avie.tabby_rpc.fabric;
 
 import cc.avie.tabby_rpc.config.TabbyRPCConfig;
+import cc.avie.tabby_rpc.custom.CustomRpc;
 import cc.avie.tabby_rpc.discord.ActivityTracker;
 import cc.avie.tabby_rpc.discord.JoinRequests;
 import cc.avie.tabby_rpc.discord.RichPresence;
@@ -21,6 +22,7 @@ public final class TabbyRPCFabricClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         TabbyRPCConfig.init();
+        CustomRpc.load();
         RichPresence.start();
         ClientTickEvents.END_CLIENT_TICK.register(ActivityTracker::tick);
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> RichPresence.stop());

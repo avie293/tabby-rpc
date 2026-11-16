@@ -2,6 +2,7 @@ package cc.avie.tabby_rpc.discord;
 
 import cc.avie.tabby_rpc.TabbyRPC;
 import cc.avie.tabby_rpc.config.TabbyRPCConfig;
+import cc.avie.tabby_rpc.custom.CustomRpc;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import net.minecraft.client.Minecraft;
@@ -9,6 +10,7 @@ import net.minecraft.client.User;
 import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.UUID;
@@ -32,8 +34,8 @@ public final class RichPresence {
     // Shown as "Playing Minecraft" instead of the name of the Discord application.
     private static final String NAME = "Minecraft";
     private static final String HEAD_URL = "https://mc-heads.net/avatar/";
-    private static final String DOWNLOAD_LABEL = "Download Tabby RPC";
-    private static final String DOWNLOAD_URL = "https://modrinth.com/mod/tabby-rpc";
+    private static final List<CustomRpc.Button> DOWNLOAD_BUTTON = List.of(
+            new CustomRpc.Button("Download Tabby RPC", "https://modrinth.com/mod/tabby-rpc"));
     // Everyone in the same world has to report the same party, joining players do not do that yet.
     private static final String PARTY_ID = UUID.randomUUID().toString();
 
@@ -65,22 +67,19 @@ public final class RichPresence {
 
     /**
      * Sets the two lines below the name and the large image. Cheap enough to be called every tick.
-     */
-    public static void update(String details, String state, String image) {
-        update(details, state, image, 0, 0, null);
-    }
-
-    /**
+     *
+     * @param largeText shown when hovering the large image, {@code null} for none
      * @param partyMax the number of players that fit into the world, 0 hides the party
      * @param joinSecret what a joining player needs to get into the world, only handed out to players the host let in
      */
-    public static void update(String details, String state, String image, int partySize, int partyMax,
-                              @Nullable String joinSecret) {
+    public static void update(String details, String state, String image, @Nullable String largeText, int partySize,
+                              int partyMax, @Nullable String joinSecret) {
         Presence current = presence;
         if (current == null || !current.details.equals(details) || !current.state.equals(state)
-                || !current.image.equals(image) || current.partySize != partySize || current.partyMax != partyMax
+                || !current.image.equals(image) || !Objects.equals(current.largeText, largeText)
+                || current.partySize != partySize || current.partyMax != partyMax
                 || !Objects.equals(current.joinSecret, joinSecret)) {
-            presence = new Presence(details, state, image, partySize, partyMax, joinSecret);
+            presence = new Presence(details, state, image, largeText, partySize, partyMax, joinSecret);
             wake();
         }
     }
@@ -159,8 +158,10 @@ public final class RichPresence {
     }
 
     private static JsonObject activity(JsonObject timestamps) {
+        CustomRpc custom = CustomRpc.get();
+        String name = custom.getName();
         JsonObject activity = new JsonObject();
-        activity.addProperty("name", NAME);
+        activity.addProperty("name", name != null ? name : NAME);
         activity.add("timestamps", timestamps);
 
         // Still unknown for a moment after the game has started.
@@ -171,6 +172,9 @@ public final class RichPresence {
 
         JsonObject assets = new JsonObject();
         assets.addProperty("large_image", current.image);
+        if (current.largeText != null) {
+            assets.addProperty("large_text", fit(current.largeText));
+        }
         // Discord draws the small image as a circle in the bottom right corner of the large one.
         assets.addProperty("small_image", headUrl);
         assets.addProperty("small_text", playerName);
@@ -192,13 +196,18 @@ public final class RichPresence {
             secrets.addProperty("join", current.joinSecret);
             activity.add("secrets", secrets);
         } else if (TabbyRPCConfig.SHOW_DOWNLOAD_BUTTON.get()) {
-            // Discord refuses buttons together with a join secret, so asking to join takes the place of the button.
-            JsonObject button = new JsonObject();
-            button.addProperty("label", DOWNLOAD_LABEL);
-            button.addProperty("url", DOWNLOAD_URL);
-            JsonArray buttons = new JsonArray();
-            buttons.add(button);
-            activity.add("buttons", buttons);
+            // Discord refuses buttons together with a join secret, so asking to join takes the place of the buttons.
+            List<CustomRpc.Button> buttons = custom.getButtons();
+            JsonArray array = new JsonArray();
+            for (CustomRpc.Button button : buttons != null ? buttons : DOWNLOAD_BUTTON) {
+                JsonObject object = new JsonObject();
+                object.addProperty("label", button.label());
+                object.addProperty("url", button.url());
+                array.add(object);
+            }
+            if (!array.isEmpty()) {
+                activity.add("buttons", array);
+            }
         }
         return activity;
     }
@@ -213,8 +222,8 @@ public final class RichPresence {
         return text.length() > 128 ? text.substring(0, 128) : text;
     }
 
-    private record Presence(String details, String state, String image, int partySize, int partyMax,
-                            @Nullable String joinSecret) {
+    private record Presence(String details, String state, String image, @Nullable String largeText, int partySize,
+                            int partyMax, @Nullable String joinSecret) {
     }
 
     private record JoinAnswer(String userId, boolean accept) {
