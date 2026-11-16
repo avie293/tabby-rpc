@@ -22,6 +22,7 @@ runs/
 .project
 .settings/
 .factorypath
+.eclipse/
 bin/
 *.launch
 
