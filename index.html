@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tabby RPC Builder</title>
+  <meta name="description" content="Build the custom_rpc folder of Tabby RPC for your modpack and download it as a zip file.">
+  <link rel="icon" href="assets/logo.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <img class="top__logo" src="assets/logo.png" alt="" width="40" height="40">
+    <div>
+      <h1>Tabby RPC Builder</h1>
+      <p>Set up the Discord Rich Presence of your modpack and download the <code>custom_rpc</code> folder.</p>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="editor">
+      <div class="panel">
+        <h2>Application</h2>
+        <label class="field">
+          <span>Application ID</span>
+          <input id="applicationId" inputmode="numeric" placeholder="Tabby RPC's own application" autocomplete="off">
+          <small id="applicationStatus" class="hint">Leave empty to use Tabby RPC's application. With your own one,
+            Discord shows its name and icon, and art assets can be used by their name.</small>
+        </label>
+        <label class="field">
+          <span>Name after "Playing"</span>
+          <input id="name" placeholder="Minecraft" maxlength="128" autocomplete="off">
+          <small class="warning" data-for="name"></small>
+        </label>
+      </div>
+
+      <div class="panel">
+        <h2>Buttons</h2>
+        <div class="segmented" role="radiogroup" aria-label="Buttons">
+          <label><input type="radio" name="buttonMode" value="default" checked> Download Tabby RPC</label>
+          <label><input type="radio" name="buttonMode" value="custom"> Own buttons</label>
+          <label><input type="radio" name="buttonMode" value="none"> No buttons</label>
+        </div>
+        <div id="buttons" class="buttons" hidden>
+          <div class="button-row">
+            <input data-button="0" data-key="label" placeholder="Label" maxlength="32" autocomplete="off">
+            <input data-button="0" data-key="url" placeholder="https://" autocomplete="off">
+          </div>
+          <div class="button-row">
+            <input data-button="1" data-key="label" placeholder="Label" maxlength="32" autocomplete="off">
+            <input data-button="1" data-key="url" placeholder="https://" autocomplete="off">
+          </div>
+          <small class="warning" data-for="buttons"></small>
+        </div>
+        <small class="hint">Discord shows buttons only to others, and not while they can ask to join the world.</small>
+      </div>
+
+      <div class="panel">
+        <h2>Situations</h2>
+        <div id="tabs" class="tabs" role="tablist"></div>
+        <div id="situation"></div>
+        <div class="placeholders">
+          <span class="hint">Insert:</span>
+          <div id="chips"></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="panel preview-panel">
+        <h2>Preview</h2>
+        <div class="card">
+          <div class="card__title">Playing a game</div>
+          <div class="card__body">
+            <div class="card__images">
+              <img id="previewLarge" class="card__large" alt="" title="">
+              <div id="previewLargeKey" class="card__large card__large--key" hidden></div>
+              <img class="card__small" src="https://mc-heads.net/avatar/Steve/64" alt="" title="Steve">
+            </div>
+            <div class="card__text">
+              <div id="previewName" class="card__name"></div>
+              <div id="previewDetails"></div>
+              <div id="previewState"></div>
+              <div class="card__time">00:42 elapsed</div>
+            </div>
+          </div>
+          <div id="previewButtons" class="card__buttons"></div>
+        </div>
+        <div class="preview-options">
+          <label><input type="checkbox" id="optWorld" checked> Player shows the world name</label>
+          <label><input type="checkbox" id="optServer"> Player shows the server address</label>
+          <label><input type="checkbox" id="optJoin"> Others can ask to join</label>
+        </div>
+        <p class="hint">Sample values: Steve, Fabric 26.3, world "New World", server "play.example.com", 3 of 20
+          players.</p>
+      </div>
+
+      <div class="panel">
+        <h2>Download</h2>
+        <ul id="files" class="files"></ul>
+        <button id="download" class="download" type="button">Download zip</button>
+        <p class="hint">Extract the zip into the instance folder of your modpack. Changes show up after
+          <code>/tabbyrpc reload</code> or a restart.</p>
+        <button id="reset" class="link" type="button">Start over</button>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="bottom">
+    <a href="https://github.com/avie293/tabby-rpc">Tabby RPC on GitHub</a>
+    <span>Everything stays in your browser.</span>
+  </footer>
+
+  <script src="zip.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
