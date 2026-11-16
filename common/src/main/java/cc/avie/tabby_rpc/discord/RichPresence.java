@@ -23,7 +23,7 @@ import java.util.concurrent.locks.LockSupport;
  * stall the game.
  */
 public final class RichPresence {
-    // Application ID from the Discord Developer Portal.
+    // Application ID from the Discord Developer Portal, a modpack can bring its own.
     private static final String APPLICATION_ID = "1571528779539677315";
     private static final long RETRY_INTERVAL_MS = 15_000L;
     private static final long RETRY_INTERVAL_NS = TimeUnit.MILLISECONDS.toNanos(RETRY_INTERVAL_MS);
@@ -99,8 +99,18 @@ public final class RichPresence {
         JsonObject timestamps = new JsonObject();
         timestamps.addProperty("start", System.currentTimeMillis() / 1000L);
 
+        String refused = null;
         try {
-            while (hold(timestamps)) {
+            while (true) {
+                String applicationId = applicationId();
+                // Asking again with an application Discord refused is pointless until the custom_rpc folder changes.
+                if (!applicationId.equals(refused)) {
+                    Connection result = hold(applicationId, timestamps);
+                    if (result == Connection.SWITCHED) {
+                        continue;
+                    }
+                    refused = result == Connection.REFUSED ? applicationId : null;
+                }
                 Thread.sleep(RETRY_INTERVAL_MS);
             }
         } catch (InterruptedException e) {
@@ -108,13 +118,16 @@ public final class RichPresence {
         }
     }
 
+    private static String applicationId() {
+        String custom = CustomRpc.get().getApplicationId();
+        return custom != null ? custom : APPLICATION_ID;
+    }
+
     /**
-     * Connects and stays connected for as long as Discord is running.
-     *
-     * @return {@code false} if Discord refused the connection and trying again is pointless
+     * Connects and stays connected for as long as Discord is running and the application stays the same.
      */
-    private static boolean hold(JsonObject timestamps) throws InterruptedException {
-        try (DiscordIpc ipc = DiscordIpc.connect(APPLICATION_ID, JoinRequests::onEvent)) {
+    private static Connection hold(String applicationId, JsonObject timestamps) throws InterruptedException {
+        try (DiscordIpc ipc = DiscordIpc.connect(applicationId, JoinRequests::onEvent)) {
             ipc.subscribe("ACTIVITY_JOIN");
             ipc.subscribe("ACTIVITY_JOIN_REQUEST");
 
@@ -122,7 +135,7 @@ public final class RichPresence {
             long now = System.nanoTime();
             long nextUpdate = now;
             long nextPing = now + RETRY_INTERVAL_NS;
-            while (true) {
+            while (applicationId.equals(applicationId())) {
                 ipc.poll();
                 for (JoinAnswer answer; (answer = JOIN_ANSWERS.poll()) != null; ) {
                     ipc.answerJoinRequest(answer.userId, answer.accept);
@@ -148,12 +161,13 @@ public final class RichPresence {
                     throw new InterruptedException();
                 }
             }
+            return Connection.SWITCHED;
         } catch (DiscordIpc.ClosedException e) {
             TabbyRPC.LOGGER.error("Discord closed the connection: {}", e.getMessage());
-            return false;
+            return Connection.REFUSED;
         } catch (IOException e) {
             // Discord is not running or was closed in the meantime.
-            return true;
+            return Connection.LOST;
         }
     }
 
@@ -161,7 +175,10 @@ public final class RichPresence {
         CustomRpc custom = CustomRpc.get();
         String name = custom.getName();
         JsonObject activity = new JsonObject();
-        activity.addProperty("name", name != null ? name : NAME);
+        // The name of a modpack's own application is shown unless the modpack sets another one.
+        if (name != null || custom.getApplicationId() == null) {
+            activity.addProperty("name", name != null ? name : NAME);
+        }
         activity.add("timestamps", timestamps);
 
         // Still unknown for a moment after the game has started.
@@ -227,5 +244,11 @@ public final class RichPresence {
     }
 
     private record JoinAnswer(String userId, boolean accept) {
+    }
+
+    private enum Connection {
+        LOST,
+        REFUSED,
+        SWITCHED
     }
 }
