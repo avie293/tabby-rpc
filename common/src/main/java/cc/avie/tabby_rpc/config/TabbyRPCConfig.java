@@ -18,8 +18,10 @@ public final class TabbyRPCConfig {
             .maxLength(128)
             .validator(name -> !name.isBlank())
             .onChange(RichPresence::setName);
+    public static final BooleanOption SHOW_WORLD_NAME = Options.toggle("showWorldName", true);
     public static final BooleanOption SHOW_SERVER_ADDRESSES = Options.toggle("showServerAddresses", false);
     public static final BooleanOption ALLOW_JOIN_REQUESTS = Options.toggle("allowJoinRequests", true);
+    public static final BooleanOption SHOW_DOWNLOAD_BUTTON = Options.toggle("showDownloadButton", true);
 
     // Servers that were set to shown or hidden in the screen for adding and editing servers.
     private static final StringListOption SHOWN_SERVERS = Options.textList("shownServers", List.of())
@@ -37,7 +39,8 @@ public final class TabbyRPCConfig {
     public static void init() {
         config = TabbyConfig.builder(TabbyRPC.MOD_ID)
                 .category("general", category -> category
-                        .add(ACTIVITY_NAME, SHOW_SERVER_ADDRESSES, ALLOW_JOIN_REQUESTS, SHOWN_SERVERS, HIDDEN_SERVERS))
+                        .add(ACTIVITY_NAME, SHOW_WORLD_NAME, SHOW_SERVER_ADDRESSES, ALLOW_JOIN_REQUESTS,
+                                SHOW_DOWNLOAD_BUTTON, SHOWN_SERVERS, HIDDEN_SERVERS))
                 .build();
     }
 

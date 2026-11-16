@@ -30,6 +30,8 @@ public final class RichPresence {
     // How often events from Discord, such as join requests, are looked for.
     private static final long POLL_INTERVAL_NS = TimeUnit.SECONDS.toNanos(1);
     private static final String HEAD_URL = "https://mc-heads.net/avatar/";
+    private static final String DOWNLOAD_LABEL = "Download Tabby RPC";
+    private static final String DOWNLOAD_URL = "https://modrinth.com/mod/tabby-rpc";
     // Everyone in the same world has to report the same party, joining players do not do that yet.
     private static final String PARTY_ID = UUID.randomUUID().toString();
 
@@ -196,6 +198,14 @@ public final class RichPresence {
             JsonObject secrets = new JsonObject();
             secrets.addProperty("join", current.joinSecret);
             activity.add("secrets", secrets);
+        } else if (TabbyRPCConfig.SHOW_DOWNLOAD_BUTTON.get()) {
+            // Discord refuses buttons together with a join secret, so asking to join takes the place of the button.
+            JsonObject button = new JsonObject();
+            button.addProperty("label", DOWNLOAD_LABEL);
+            button.addProperty("url", DOWNLOAD_URL);
+            JsonArray buttons = new JsonArray();
+            buttons.add(button);
+            activity.add("buttons", buttons);
         }
         return activity;
     }

@@ -13,4 +13,6 @@
 - Added the number of players to worlds that are open to LAN
 - Added "Ask to Join" for LAN worlds while e4mc is installed, requests can be answered in Discord or in the chat
 - Added an option to turn join requests off
+- Added an option to hide the name of singleplayer worlds
+- Added a button that leads others to Tabby RPC, which can be turned off
 - Added the head of the player as a small round image

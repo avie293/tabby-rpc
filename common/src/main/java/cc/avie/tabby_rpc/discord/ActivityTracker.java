@@ -69,7 +69,9 @@ public final class ActivityTracker {
     }
 
     private static void updateSingleplayer(IntegratedServer server) {
-        String state = server.getWorldData().getLevelName() + SEPARATOR + VERSION;
+        String state = TabbyRPCConfig.SHOW_WORLD_NAME.get()
+                ? server.getWorldData().getLevelName() + SEPARATOR + VERSION
+                : VERSION;
         // e4mc is started and stopped on its own, the world does not have to be open to LAN for it.
         String domain = E4mc.domain();
         if (!server.isPublished() && domain == null) {
